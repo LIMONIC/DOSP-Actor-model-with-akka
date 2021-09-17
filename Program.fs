@@ -41,3 +41,36 @@ let res = generateSHA256Str str
 printfn "%s" res
 // Test: check if SHA256 of a string is valid
 validateSHAStr res 2 |> printfn "%d"
+
+
+//Create string random with Gator link ID as prefix
+let prefix = "hongru.liu;"
+let lengthOfStr = Console.ReadLine()
+
+//transfer type of lengthOfSting from string to int
+let parse (s: string) =
+    match (System.Int32.TryParse(s)) with
+    | (true, value) -> value
+    | (false, _) -> failwith "Invalid int"
+let length = parse(lengthOfStr)
+
+//put all the element in chars
+let chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+let charsLen = chars.Length
+
+//function: get randomString
+let randomStr = 
+    let random = System.Random()
+    fun len -> 
+        let randomChars = [|for i in 0..len -> chars.[random.Next(charsLen)]|]
+        new System.String(randomChars)
+
+let randomString = prefix + randomStr(length)
+printfn "%s" randomString
+
+
+//test output
+let res1 = generateSHA256Str randomString
+printfn "%s" res1
+// Test: check if SHA256 of a string is valid
+validateSHAStr res1 2 |> printfn "%d"
