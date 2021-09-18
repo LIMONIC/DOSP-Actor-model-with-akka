@@ -43,6 +43,8 @@ printfn "%s" res
 validateSHAStr res 2 |> printfn "%d"
 
 
+//comment out the method of randomly generating strings
+(*
 //Create string random with Gator link ID as prefix
 let prefix = "hongru.liu;"
 let lengthOfStr = Console.ReadLine()
@@ -74,3 +76,33 @@ let res1 = generateSHA256Str randomString
 printfn "%s" res1
 // Test: check if SHA256 of a string is valid
 validateSHAStr res1 2 |> printfn "%d"
+*)
+
+let prefix = "hongru.liu;"
+let chars = "0123456789abcdefghigklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+//parameters
+let start = int 100000
+let iteration = int 100
+
+
+ //iteration to get all the strings
+let seq1 =
+    seq {
+        for i in start..start+iteration ->
+        let mutable startStr = ""
+        let mutable divider = i
+        let mutable reminder = 0
+        while divider > 0 do
+            reminder <- divider%62
+            startStr <- string(chars.[reminder]) + startStr
+            divider <- divider/62
+        (i,prefix + startStr)
+    }
+
+
+//show all the index and corresponding string
+for (a, astr) in seq1 do
+    printfn "%d squared is %s" a astr
+    
+
