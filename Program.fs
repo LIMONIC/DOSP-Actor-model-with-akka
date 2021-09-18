@@ -49,7 +49,8 @@ let decimalToStr (decimal: int) =
         let r = ref (getRem !num)
         resArr := string ENCODING_STR.[!r] + !resArr
         num := getQuotient !num
-    !resArr
+    "tianyu.zhang;" + !resArr
+
 
 /// iterate string
 
@@ -59,7 +60,8 @@ let worker (start, iteration, zeros) =
     // convert start number to string
     // let startStr = start |> decimalTo62
     for i = 0 to iteration do
-        printfn "%s" (i |> decimalToStr)
+        let str = (i |> decimalToStr)
+        printfn "%s" str
         // validateSHAStr (str |> generateSHA256Str) zeros
     // printfn ""
 
