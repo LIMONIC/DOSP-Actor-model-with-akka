@@ -2,6 +2,8 @@ open System
 open System.Security.Cryptography
 open System.Text
 
+let ENCODING_STR = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 /// Remove certain Character from string
 let removeChar (stripChars:string) (text:string) =
     text.Split(stripChars.ToCharArray(), StringSplitOptions.RemoveEmptyEntries) |> String.Concat
@@ -34,43 +36,41 @@ let validateSHAStr str target =
     let num = countHeadingZeros (str |> Seq.toList) 0
     if num = target then 1 else 0
 
+/// generate string
+// decimal to 62-decimal 
+let decimalToStr (decimal: int) = 
+    let num = ref decimal
+    let getQuotient x = x / 62
+    let getRem x = x % 62
+    let resArr = ref ""
 
-// Test: print out SHA256 String
-let str = "7wLfA2pSBgg2e6A"
-let res = generateSHA256Str str
-printfn "%s" res
-// Test: check if SHA256 of a string is valid
-validateSHAStr res 2 |> printfn "%d"
+    if !num = 0 then resArr := "0"
+    while (!num) <> 0 do
+        let r = ref (getRem !num)
+        resArr := string ENCODING_STR.[!r] + !resArr
+        num := getQuotient !num
+    !resArr
 
-
-//Create string random with Gator link ID as prefix
-let prefix = "hongru.liu;"
-let lengthOfStr = Console.ReadLine()
-
-//transfer type of lengthOfSting from string to int
-let parse (s: string) =
-    match (System.Int32.TryParse(s)) with
-    | (true, value) -> value
-    | (false, _) -> failwith "Invalid int"
-let length = parse(lengthOfStr)
-
-//put all the element in chars
-let chars = "abcdefghijklmnopqrstuvwxyz0123456789"
-let charsLen = chars.Length
-
-//function: get randomString
-let randomStr = 
-    let random = System.Random()
-    fun len -> 
-        let randomChars = [|for i in 0..len -> chars.[random.Next(charsLen)]|]
-        new System.String(randomChars)
-
-let randomString = prefix + randomStr(length)
-printfn "%s" randomString
+/// iterate string
 
 
-//test output
-let res1 = generateSHA256Str randomString
-printfn "%s" res1
-// Test: check if SHA256 of a string is valid
-validateSHAStr res1 2 |> printfn "%d"
+// worker main logic: iterate string and find valid ones
+let worker (start, iteration, zeros) = 
+    // convert start number to string
+    // let startStr = start |> decimalTo62
+    for i = 0 to iteration do
+        printfn "%s" (i |> decimalToStr)
+        // validateSHAStr (str |> generateSHA256Str) zeros
+    // printfn ""
+
+worker (0, 100, 10)
+
+/// **************TEST*****************
+// // Test: print out SHA256 String
+// let str = "7wLfA2pSBgg2e6A"
+// let res = generateSHA256Str str
+// printfn "%s" res
+// // Test: check if SHA256 of a string is valid
+// validateSHAStr res 2 |> printfn "%d"
+/// ***********************************
+
