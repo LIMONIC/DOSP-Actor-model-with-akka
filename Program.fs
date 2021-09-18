@@ -2,6 +2,10 @@ open System
 open System.Security.Cryptography
 open System.Text
 
+let STR_PREFIX = "hongru.liu;"
+let STR_DICT = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
 /// Remove certain Character from string
 let removeChar (stripChars:string) (text:string) =
     text.Split(stripChars.ToCharArray(), StringSplitOptions.RemoveEmptyEntries) |> String.Concat
@@ -32,15 +36,56 @@ let rec countHeadingZeros str cnt =
 /// return 1 if true; 0 if false 
 let validateSHAStr str target = 
     let num = countHeadingZeros (str |> Seq.toList) 0
-    if num = target then 1 else 0
+    if num = target then true else false
+
+/// generate string
+/// decimal to 62-decimal 
+let decimalToStr (decimal: int) = 
+    let num = ref decimal
+    let resArr = ref ""
+    let getQuotient x = x / 62
+    let getRem x = x % 62
+
+    if !num = 0 then resArr := "0"
+    while (!num) <> 0 do
+        let r = ref (getRem !num)
+        resArr := string STR_DICT.[!r] + !resArr
+        num := getQuotient !num
+    STR_PREFIX + !resArr
+
+let worker (start, iteration, zeros) = 
+    seq {
+        for i = 0 to iteration do
+            let str = (start + i |> decimalToStr)
+            let sha256Str = (str |> generateSHA256Str)
+            if (validateSHAStr sha256Str zeros) then (str, sha256Str)
+    }
+    |> Seq.toList
+    |> printfn "%A" //show all the index and corresponding string
+
+worker (0, 1000000, 4)
 
 
-// Test: print out SHA256 String
-let str = "7wLfA2pSBgg2e6A"
-let res = generateSHA256Str str
-printfn "%s" res
-// Test: check if SHA256 of a string is valid
-validateSHAStr res 2 |> printfn "%d"
+
+//  //iteration to get all the strings
+// let seq1 =
+//     seq {
+//         for i in 0..0+1000 ->
+//         let mutable startStr = ""
+//         let mutable divider = i
+//         let mutable reminder = 0
+//         while divider > 0 do
+//             reminder <- divider%62
+//             startStr <- string(STR_DICT.[reminder]) + startStr
+//             divider <- divider/62
+//         (i,STR_PREFIX + startStr)
+//     }
+
+
+// //show all the index and corresponding string
+// for (a, astr) in seq1 do
+//     printfn "%s" astr
+    
 
 
 //comment out the method of randomly generating strings
@@ -78,31 +123,14 @@ printfn "%s" res1
 validateSHAStr res1 2 |> printfn "%d"
 *)
 
-let prefix = "hongru.liu;"
-let chars = "0123456789abcdefghigklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-//parameters
-let start = int 100000
-let iteration = int 100
 
 
- //iteration to get all the strings
-let seq1 =
-    seq {
-        for i in start..start+iteration ->
-        let mutable startStr = ""
-        let mutable divider = i
-        let mutable reminder = 0
-        while divider > 0 do
-            reminder <- divider%62
-            startStr <- string(chars.[reminder]) + startStr
-            divider <- divider/62
-        (i,prefix + startStr)
-    }
 
+// // Test: print out SHA256 String
+// let str = "7wLfA2pSBgg2e6A"
+// let res = generateSHA256Str str
+// printfn "%s" res
+// // Test: check if SHA256 of a string is valid
+// validateSHAStr res 2 |> printfn "%d"
 
-//show all the index and corresponding string
-for (a, astr) in seq1 do
-    printfn "%d squared is %s" a astr
-    
 
