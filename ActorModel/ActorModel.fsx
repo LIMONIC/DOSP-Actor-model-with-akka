@@ -14,6 +14,7 @@ let system = System.create "my-system" (Configuration.load())
 type Information = 
     | Input of (int64*int64*int64)
     | Output of (list<string * string>)
+    | Scale of (int64)
     | Done of (string)
     // | Input of (int64*int64)
 
@@ -37,7 +38,7 @@ let WorkerActor (mailbox:Actor<_>) =
         | Input(start, k, zeros) -> 
             // printerRef <! startind
             printfn "Starting working with %d %d %d" start k zeros
-            let res = worker (start, k, zeros)
+            let res = getValidStr (start, k, zeros)
             printfn "%A %A" res.IsEmpty res
             if res.IsEmpty then boss <! Done("NotFound")
                 else boss <! Done("Found")
@@ -54,7 +55,6 @@ let BossActor (mailbox:Actor<_>) =
     let totalActors = actcount//*125L
     printfn "totalactors: %d" totalActors
 
-    
     // let split = totalactors*2L
     // printfn "split: %d" split
     let workerActorsPool = 

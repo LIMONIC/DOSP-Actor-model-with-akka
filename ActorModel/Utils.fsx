@@ -56,7 +56,7 @@ let decimalToStr (decimal: int64) =
     STR_PREFIX + !resArr
 
 /// get result
-let worker (start: int64, iteration: int64, zeros: int64) = 
+let getValidStr (start: int64, iteration: int64, zeros: int64) = 
     seq {
         for i = 0L to iteration do
             let str = (start + i |> decimalToStr)
@@ -70,7 +70,7 @@ let worker (start: int64, iteration: int64, zeros: int64) =
 let printRes targetZeros =
     let iterations = (100 * (pown 10 targetZeros)) |> int64
     printfn "%d" iterations
-    worker (0L, iterations, targetZeros |> int64)
+    getValidStr (0L, iterations, targetZeros |> int64)
     |> List.iter(fun (str, sha256) -> printfn $"{str}\t{sha256}")
 
 let targetZeros = fsi.CommandLineArgs.[1] |> int
