@@ -80,8 +80,8 @@ let BossActor (mailbox:Actor<_>) =
             // printfn "taskNum %d" taskNum
             let assignTasks (size, actors) = 
                 [1L..actors] |> List.iteri(fun i x -> 
-                    printfn $"Initialize No.{i} actor of {actors}: {int64 i * size} {int64 i * size + size - 1L}"
-                    workerSystem <! Input(int64 i * size, int64 i * size + size - 1L, t)
+                    printfn $"Initialize No.{i} actor of {actors}: {int64 i * size + n} {int64 i * (size + 1L) + n - 1L}"
+                    workerSystem <! Input(int64 i * size + n, int64 i * (size + 1L) + n - 1L, t)
                 )
             // assign tasks based on actornumber
             match taskNum with
