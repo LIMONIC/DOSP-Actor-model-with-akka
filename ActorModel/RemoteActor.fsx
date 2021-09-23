@@ -5,11 +5,12 @@ open System
 open Akka.Actor
 open Akka.Configuration
 open Akka.FSharp
+open Akka.Remote
 let config =
     Configuration.parse
         @"akka {
-            actor.provider = ""Akka.Remote.RemoteActorRefProvider, Akka.Remote""
-            remote.helios.tcp {
+            actor.provider = remote
+            dot-netty.tcp {
                 hostname = ""127.0.0.1""
                 port = 9001
             }
@@ -22,9 +23,10 @@ let echoServer =
             actor {
                 let! message = mailbox.Receive()
                 let sender = mailbox.Sender()
-                printfn "echoServer called"
+                
                 match box message with
                 | :? string -> 
+                    printfn "echoServer called"
                     sender <! sprintf "Echo: %s" message
                     return! loop()
                 | _ ->  failwith "Unknown message"
