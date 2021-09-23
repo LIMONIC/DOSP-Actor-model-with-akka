@@ -8,113 +8,132 @@ open Utils
 open Akka.Actor
 open Akka.FSharp
 
-// let system = ActorSystem.Create("Woker", Configuration.defaultConfig())
+let system = ActorSystem.Create("StringDigger", Configuration.defaultConfig())
 // Use Actor system for naming
-let system = System.create "my-system" (Configuration.load())
+// let system = System.create "my-system" (Configuration.load())
+
 type Information = 
+    | TaskSize of (int64)
     | Input of (int64*int64*int64)
     | Output of (list<string * string>)
-    | Scale of (int64)
     | Done of (string)
-    // | Input of (int64*int64)
 
-// Printer Actor - To print the output
-let printerActor (mailbox:Actor<_>) = 
+(*/ Print results and send them to server /*)
+let printer (mailbox:Actor<_>) =
+    let mutable res = []
     let rec loop () = actor {
-        let! (index:int64) = mailbox.Receive()
-        printfn "Printer：%d" index      
+        let! message = mailbox.Receive()
+        // printfn "worker acotr receive msg: %A" message
+        let printRes resList = 
+            printfn "-------------RESULT-------------" 
+            resList |> List.iter(fun (str, sha256) -> printfn $"{str}\t{sha256}")
+            res <- []
+            printfn "--------------------------------" 
+        match message with
+        | Output(resList) -> 
+            if res.Length >= 100
+                then 
+                    res |> printRes
+                else
+                    res <- res @ resList
+        | Done(completeMsg) -> 
+            printfn $"[INFO][DONE]: {completeMsg}"
+            if res.Length > 0 then printRes res
+        | _ -> ()
         return! loop()
     }
     loop()
-let printerRef = spawn system "Printer" printerActor
+let printerRef = spawn system "printer" printer
 
-// Worker Actors - Takes input from Boss and do the processing using sliding window algo and returns the completed message.
-let WorkerActor (mailbox:Actor<_>) =
+(*/ Worker Actors
+    Takes input from remoteActor, calculate results and pass the result to PostMan Actor
+ /*)
+let worker (mailbox:Actor<_>) =
     let rec loop () = actor {
         let! message = mailbox.Receive()
-        printfn "worker acotr receive msg: %A" message
-        let boss = mailbox.Sender()
+        let outBox = mailbox.Sender()
+        let tid = Threading.Thread.CurrentThread.ManagedThreadId
         match message with
         | Input(start, k, zeros) -> 
-            // printerRef <! startind
-            printfn "Starting working with %d %d %d" start k zeros
             let res = getValidStr (start, k, zeros)
-            printfn "%A %A" res.IsEmpty res
-            if res.IsEmpty then boss <! Done("NotFound")
-                else boss <! Done("Found")
-                     boss <! Output(res)
+            if res.IsEmpty 
+                then 
+                    outBox <! Done($"[TID: {tid}]\tNotFound!")
+                else 
+                    outBox <! Output(res)
+                    outBox <! Done($"[TID: {tid}]\tFound!\t")
         | _ -> ()
         return! loop()
     }
     loop()
 
-// Boss - Takes input from command line and spawns the actor pool. Splits the tasks based on cores count and allocates using Round-Robin
-let BossActor (mailbox:Actor<_>) =
+let localActor (mailbox:Actor<_>) = 
     let actcount = System.Environment.ProcessorCount |> int64
+    let totalWorkers = actcount*125L
+
     printfn "ProcessorCount: %d" actcount
-    let totalActors = actcount//*125L
-    printfn "totalactors: %d" totalActors
+    printfn "totalWorker: %d" totalWorkers
 
-    // let split = totalactors*2L
-    // printfn "split: %d" split
-    let workerActorsPool = 
-            [1L .. totalActors]
-            |> List.map(fun id -> spawn system (sprintf "Local_%d" id) WorkerActor)
+    let workersPool = 
+            [1L .. totalWorkers]
+            |> List.map(fun id -> spawn system (sprintf "Local_%d" id) worker)
 
-    let workerenum = [|for lp in workerActorsPool -> lp|]
+    let workerenum = [|for i = 1 to workersPool.Length + 1 do (sprintf "/user/Local_%d" i)|]
     let workerSystem = system.ActorOf(Props.Empty.WithRouter(Akka.Routing.RoundRobinGroup(workerenum)))
-    let mutable completed = 0L
-    let mutable actorNum = totalActors
+    let mutable completedLocalWorkerNum = 0L
+    let mutable localActorNum = totalWorkers
+    let mutable taskSize = 1E6 |> int64
 
+// Assign tasks to worker
     let rec loop () = actor {
         let! message = mailbox.Receive()
-        printfn $"Boss received {message}"
+        // printfn $"[DEBUG]: Boss received {message}"
         match message with 
+        | TaskSize(size) -> taskSize <- size
         | Input(n,k,t) -> 
-            // task init\
-            let mutable taskSize = 1E6 |> int64
-
+            // task init
             let totalTasks = k - n
-            let taskNum = 
+            let requiredActorNum = 
                 if totalTasks % taskSize = 0L then totalTasks / taskSize else totalTasks / taskSize + 1L
-            // printfn "taskNum %d" taskNum
             let assignTasks (size, actors) = 
+                printfn $"[DEBUG]: Task size: {size}"
                 [1L..actors] |> List.iteri(fun i x -> 
-                    printfn $"Initialize No.{i} actor of {actors}: {int64 i * size + n} {int64 i * (size + 1L) + n - 1L}"
-                    workerSystem <! Input(int64 i * size + n, int64 i * (size + 1L) + n - 1L, t)
+                    printfn $"- Initialize actor [{i + 1}/{actors}]: \t{int64 i * size + n} - {(int64 i + 1L)* size + n - 1L}"
+                    workerSystem <! Input(int64 i * size + n, size, t)
                 )
-            // assign tasks based on actornumber
-            match taskNum with
-            | _ when taskNum > actorNum ->
+            // assign tasks based on actor number
+            match requiredActorNum with
+            | _ when requiredActorNum > localActorNum ->
                 // resize taskSize to match actor number
-                printfn $"{totalTasks} . {actorNum} = {totalTasks % actorNum = 0L}"
-                taskSize <- if totalTasks % actorNum = 0L then totalTasks / actorNum else totalTasks / actorNum + 1L
-                assignTasks(taskSize, actorNum)
-            | _ when taskNum = actorNum -> 
-                assignTasks(taskSize, actorNum)
-            | _ when taskNum < actorNum -> 
-                // recalculate actor numbers
-                actorNum <- taskNum
-                assignTasks(taskSize, taskNum)
-                // [1L..(actorNum - taskNum + 1L)] |> List.iter(fun x -> workerSystem <! Input(0L, 0L, t))
-            | _ -> failwith "wrong taskNum"
-                
+                if (totalTasks % localActorNum = 0L) then taskSize <- totalTasks / localActorNum else taskSize <- totalTasks / localActorNum + 1L
+                assignTasks(taskSize, localActorNum)
+            | _ when requiredActorNum = localActorNum -> 
+                assignTasks(taskSize, localActorNum)
+            | _ when requiredActorNum < localActorNum -> 
+                // reduce actor numbers
+                localActorNum <- requiredActorNum
+                if totalTasks < taskSize then assignTasks(totalTasks, requiredActorNum) else assignTasks(taskSize, requiredActorNum)
+            | _ -> failwith "[ERROR] wrong taskNum"
+            // printfn "End Input"
+        | Output (res) -> 
+            printerRef <! Output(res)
         | Done(completeMsg) ->
-            completed <- completed + 1L
-            printfn $"Complete msg: {completeMsg}! \tcompleted:{completed} \ttotal:{actorNum}" 
-            if completed = actorNum then
+            completedLocalWorkerNum <- completedLocalWorkerNum + 1L
+            printfn $"> {completeMsg} \tcompleted:{completedLocalWorkerNum} \ttotal:{localActorNum}" 
+            if completedLocalWorkerNum = localActorNum then
+                printerRef <! Done($"All tasks completed! local: {completedLocalWorkerNum}")
                 mailbox.Context.System.Terminate() |> ignore
-        | _ -> ()
-       
+        // | _ -> ()
         return! loop()
     }
     loop()
 
-let boss = spawn system "boss" BossActor
+let client = spawn system "localActor" localActor
 // Input from Command Line
 let N = fsi.CommandLineArgs.[1] |> int64
 let K = fsi.CommandLineArgs.[2] |> int64
 let T = fsi.CommandLineArgs.[3] |> int64
-boss <! Input(N, K, T)
+// client <! TaskSize(int64 2.5E6)
+client <! Input(N, K, T)
 // Wait until all the actors has finished processing
 system.WhenTerminated.Wait()
