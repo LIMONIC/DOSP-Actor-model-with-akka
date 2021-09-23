@@ -1,4 +1,4 @@
-﻿// RemoteActor.fsx
+// RemoteActor.fsx
 #r "nuget: Akka.FSharp" 
 #r "nuget: Akka.Remote"
 open System
