@@ -1,4 +1,3 @@
-﻿//LocalActor.fsx
 #r "nuget: Akka.FSharp" 
 #r "nuget: Akka.Remote"
 open System
@@ -26,5 +25,5 @@ let configuration =
 let system = ActorSystem.Create("RemoteFSharp", configuration)
 let echoClient = system.ActorSelection("akka.tcp://RemoteFSharp@127.0.0.1:9001/user/EchoServer")
 let task = echoClient <? "F#!"
-let response = Async.RunSynchronously (task, 1000)
+let response : obj = Async.RunSynchronously (task, 1000)
 printfn "Reply from remote %s" (string(response))
