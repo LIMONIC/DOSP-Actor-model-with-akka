@@ -1,3 +1,4 @@
+#time "on"
 open System
 open System.Security.Cryptography
 open System.Text
@@ -72,6 +73,6 @@ let printRes targetZeros =
     |> List.iter(fun (str, sha256) -> printfn $"{str}\t{sha256}")
 
 let targetZeros = fsi.CommandLineArgs.[1] |> int
-// printRes targetZeros
+printRes targetZeros
 
 
