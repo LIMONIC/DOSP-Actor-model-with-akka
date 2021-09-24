@@ -7,10 +7,46 @@ open System
 open Utils
 open Akka.Actor
 open Akka.FSharp
+open System.Diagnostics
 
 let system = ActorSystem.Create("StringDigger", Configuration.defaultConfig())
 // Use Actor system for naming
 // let system = System.create "my-system" (Configuration.load())
+
+let measureTime f = 
+    let proc = Process.GetCurrentProcess()
+    let cpu_time_stamp = proc.TotalProcessorTime
+    let timer = new Stopwatch()
+    timer.Start()
+    try
+        f()
+        timer.Stop()
+    finally
+        let cpu_time = (proc.TotalProcessorTime-cpu_time_stamp).TotalMilliseconds
+        printfn "CPU time = %dms" (int64 cpu_time)
+        printfn "Absolute time = %dms" timer.ElapsedMilliseconds
+
+let measurePrinter (mailbox:Actor<_>) =
+    let mutable cpu = 0
+    let mutable real = 0
+    let containPrefix (p:string) (s:string) = s.StartsWith(p)
+    let rec loop () = actor {
+        let! message = mailbox.Receive()
+        // printfn "worker acotr receive msg: %A" message
+        match box message with
+        | :? string -> 
+            if message |> containPrefix "[cpu]" then 
+                cpu <- (cpu + (message.[5..] |> int))
+                // printfn $"[MEASURE]: cpu time: {cpu}"
+            else 
+                real <- (real + (message.[6..] |> int))
+                // printfn $"[MEASURE]: cpu time: {real}"
+        | _ -> ()
+        if real <> 0 then printfn $"\n[MEASURE]: cpu/real: {(float cpu)/(float real)}\n"
+        return! loop()
+    }
+    loop()
+let measurePrinterRef = spawn system "measurePrinter" measurePrinter
 
 type Information = 
     | TaskSize of (int64)
@@ -55,10 +91,18 @@ let worker (mailbox:Actor<_>) =
         let tid = Threading.Thread.CurrentThread.ManagedThreadId
         match message with
         | Input(start, k, zeros) -> 
+            let proc = Process.GetCurrentProcess()
+            let cpu_time_stamp = proc.TotalProcessorTime
+            let timer = new Stopwatch()
+            timer.Start()
             let res = getValidStr (start, k, zeros)
+            timer.Stop()
+            let cpu_time = (proc.TotalProcessorTime-cpu_time_stamp).TotalMilliseconds
+            measurePrinterRef <! sprintf "[cpu]%d" (int64 cpu_time)
+            measurePrinterRef <! sprintf "[real]%d" timer.ElapsedMilliseconds
             if res.IsEmpty 
                 then 
-                    outBox <! Done($"[TID: {tid}]\tNotFound!")
+                    outBox <! Done($"[TID: {tid}]\tNotFound! \t[CPU Time]: {int64 cpu_time}ms\t [Absolute Time]: {timer.ElapsedMilliseconds}ms")
                 else 
                     outBox <! Output(res)
                     outBox <! Done($"[TID: {tid}]\tFound!\t")
@@ -133,7 +177,7 @@ let client = spawn system "localActor" localActor
 let N = fsi.CommandLineArgs.[1] |> int64
 let K = fsi.CommandLineArgs.[2] |> int64
 let T = fsi.CommandLineArgs.[3] |> int64
-// client <! TaskSize(int64 2.5E6)
+client <! TaskSize(int64 1E5)
 client <! Input(N, K, T)
 // Wait until all the actors has finished processing
 system.WhenTerminated.Wait()
