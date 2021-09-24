@@ -54,3 +54,20 @@ Real: 00:28:18.032, CPU: 00:13:43.453, GC gen0: 68344, gen1: 3434, gen2: 5
 Real: 00:27:18.314, CPU: 00:13:43.937, GC gen0: 68367, gen1: 4630, gen2: 5
 
 500000000 6000000000 10
+
+
+Size of the work unit that you determined results in the best performance for your implementation and an explanation of how you determined it.
+7
+
+The size of the work unit refers to the number of sub-problems that a worker gets in asingle request from the boss.
+
+
+The result of running your program for input 4
+
+The running time for the above as reported by time for the above and report the time.  The ratio of CPU time to REAL TIME tells you how many cores were effectively used in the computation.  If you are close to 1 you have almost no parallelism (points will be subtracted).
+
+
+The coin with the most 0s you managed to find.
+
+
+The largest number of working machines you were able to run your code with.
