@@ -78,7 +78,7 @@ let localActor (mailbox:Actor<_>) =
             [1L .. totalWorkers]
             |> List.map(fun id -> spawn system (sprintf "Local_%d" id) worker)
 
-    let workerenum = [|for i = 1 to workersPool.Length + 1 do (sprintf "/user/Local_%d" i)|]
+    let workerenum = [|for i = 1 to workersPool.Length do (sprintf "/user/Local_%d" i)|]
     let workerSystem = system.ActorOf(Props.Empty.WithRouter(Akka.Routing.RoundRobinGroup(workerenum)))
     let mutable completedLocalWorkerNum = 0L
     let mutable localActorNum = totalWorkers
