@@ -1,5 +1,5 @@
 ﻿#time "on"
-#load "./Utils.fsx"
+#load "Utils.fsx"
 #r "nuget: Akka.FSharp"
 #r "nuget: Akka.Remote"
 #r "nuget: Akka.TestKit"
@@ -12,6 +12,7 @@ open Akka.FSharp
 open Akka.TestKit
 open Akka.Remote
 open Akka.Serialization
+open System.Diagnostics
 open Utils
 
 let configuration = 
@@ -95,21 +96,25 @@ let worker (mailbox:Actor<_>) =
         let tid = Threading.Thread.CurrentThread.ManagedThreadId
         match message with
         | Input(start, k, zeros) -> 
-            // printerRef <! startind
-            // printfn "Starting working with %d %d %d" start k zeros
+            let proc = Process.GetCurrentProcess()
+            let cpuTimeStamp = proc.TotalProcessorTime
+            let timer = new Stopwatch()
+            timer.Start()
             let res = getValidStr (start, k, zeros)
-            // printfn "%A %A" res.IsEmpty res
+            timer.Stop()
+            let cpuTime = (proc.TotalProcessorTime-cpuTimeStamp).TotalMilliseconds
+                            
             if res.IsEmpty 
                 then 
-                    outBox <! Done($"[TID: {tid}]\tNotFound")
+                    outBox <! Done($"[TID: {tid}]\tNotFound\t@\t{start} - {start + k - 1L}\n[CPU Time]: {int64 cpuTime}ms\t [Absolute Time]: {timer.ElapsedMilliseconds}ms")
                 else 
                     outBox <! Output(res)
-                    outBox <! Done($"[TID: {tid}]\tFound\t")
+                    outBox <! Done($"[TID: {tid}]\tFound\t\t@\t{start} - {start + k - 1L}\n[CPU Time]: {int64 cpuTime}ms\t [Absolute Time]: {timer.ElapsedMilliseconds}ms")
         | _ -> ()
         return! loop()
     }
     loop()
-
+ 
 
 let remoteActor (mailbox:Actor<_>) = 
     let actcount = System.Environment.ProcessorCount |> int64
@@ -124,7 +129,7 @@ let remoteActor (mailbox:Actor<_>) =
             [1L .. totalWorkers]
             |> List.map(fun id -> spawn system (sprintf "Local_%d" id) worker)
 
-    let workerenum = [|for i = 1 to workersPool.Length do (sprintf "/user/Local_%d" i)|] // (workersPool |> List.mapi(fun id _ -> (sprintf "/user/workers/Local_%d" id)))
+    let workerenum = [|for i = 1 to workersPool.Length + 1 do (sprintf "/user/Local_%d" i)|] // (workersPool |> List.mapi(fun id _ -> (sprintf "/user/workers/Local_%d" id)))
     let workerSystem = system.ActorOf(Props.Empty.WithRouter(Akka.Routing.RoundRobinGroup(workerenum)))
     let mutable completedWorkerNum = 0L
     let mutable actorNum = totalWorkers
@@ -183,7 +188,7 @@ let client = spawn system "remoteActor" remoteActor
 let N = fsi.CommandLineArgs.[1] |> int64
 let K = fsi.CommandLineArgs.[2] |> int64
 let T = fsi.CommandLineArgs.[3] |> int64
-client <! TaskSize(int64 1E5)
+client <! TaskSize(int64 2.5E6)
 client <! Input(N, K, T)
 // Wait until all the actors has finished processing
 system.WhenTerminated.Wait()

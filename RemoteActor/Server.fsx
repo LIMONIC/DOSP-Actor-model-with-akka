@@ -10,9 +10,11 @@ open Akka.Actor
 open Akka.Configuration
 open System.Security.Cryptography
 open System.Text
+open System.Diagnostics
 open Akka.TestKit
 open Akka.Remote
 open Akka.Serialization
+
 
 
 let config =
@@ -33,10 +35,17 @@ let config =
             }
         }"
     )
-    
-let remoteSystemAddressList = ["akka.tcp://RemoteStringDigger@192.168.1.22:9200"; 
-                               "akka.tcp://RemoteStringDigger@192.168.1.22:9201"; 
-                               "akka.tcp://RemoteStringDigger@192.168.1.22:9202"]
+
+
+let remoteSystemAddressList = [ "akka.tcp://RemoteStringDigger@192.168.1.22:9200"; 
+                                "akka.tcp://RemoteStringDigger@192.168.1.22:9201"; 
+                                "akka.tcp://RemoteStringDigger@192.168.1.22:9202";
+                                "akka.tcp://RemoteStringDigger@192.168.1.15:9210";
+                                "akka.tcp://RemoteStringDigger@192.168.1.15:9210";
+                                "akka.tcp://RemoteStringDigger@192.168.1.15:9210" ]
+
+// let remoteSystemAddressList = ["akka.tcp://RemoteStringDigger@192.168.1.15:9210"]
+
 let system = System.create "StringDigger" config
 
 (*/ Union for actor messages /*)
@@ -160,17 +169,21 @@ let localWorker (mailbox:Actor<_>) =
         let tid = Threading.Thread.CurrentThread.ManagedThreadId
         match message with
         | Input(start, k, zeros) -> 
-            // printerRef <! startind
-            // printfn "Starting working with %d %d %d" start k zeros
+            let proc = Process.GetCurrentProcess()
+            let cpuTimeStamp = proc.TotalProcessorTime
+            let timer = new Stopwatch()
+            timer.Start()
             let res = getValidStrLocal (start, k, zeros)
+            timer.Stop()
+            let cpuTime = (proc.TotalProcessorTime-cpuTimeStamp).TotalMilliseconds
             // printfn $"[Local][INFO]: Task received!\t{start}\t-\t{start + k - 1L}"
             if res.IsEmpty 
                 then 
-                    let notFoundStr = $"[Local][TID: {tid}]\tNotFound\t@\t{start} - {start + k - 1L}"
+                    let notFoundStr = $"[Local][TID: {tid}]\tNotFound\t@\t{start} - {start + k - 1L}\n[CPU Time]: {int64 cpuTime}ms\t [Absolute Time]: {timer.ElapsedMilliseconds}ms"
                     printerRef <! Done(notFoundStr)
                     outBox <! Done(notFoundStr)
                 else 
-                    let foundStr = $"[Local][TID: {tid}]\tFound\t@\t{start} - {start + k - 1L}"
+                    let foundStr = $"[Local][TID: {tid}]\tFound\t@\t{start} - {start + k - 1L}\n[CPU Time]: {int64 cpuTime}ms\t [Absolute Time]: {timer.ElapsedMilliseconds}ms"
                     printerRef <! Output(res)
                     printerRef <! Done(foundStr)
                     outBox <! Done(foundStr)
@@ -234,15 +247,22 @@ let actorRef address id =
                         match message with
                         | Input(start, k, zeros) -> 
                             // printfn $"[Remote][INFO]: Task received!\t{start}\t-\t{start + k - 1L}"
+                            let proc = Process.GetCurrentProcess()
+                            let cpuTimeStamp = proc.TotalProcessorTime
+                            let timer = new Stopwatch()
+                            timer.Start()
                             let res = getValidStr (start, k, zeros)
+                            timer.Stop()
+                            let cpuTime = (proc.TotalProcessorTime-cpuTimeStamp).TotalMilliseconds
+                            
                             if res.IsEmpty 
                                 then 
-                                    let notFoundStr = $"[Remote][TID: {tid}]\tNotFound\t@\t{start} - {start + k - 1L}"
+                                    let notFoundStr = $"[Remote][TID: {tid}]\tNotFound\t@\t{start} - {start + k - 1L}\n[CPU Time]: {int64 cpuTime}ms\t [Absolute Time]: {timer.ElapsedMilliseconds}ms"
                                     printfn $"{notFoundStr}"
                                     printer <! Done(notFoundStr)
                                     outBox <! Done(notFoundStr)
                                 else 
-                                    let foundStr = $"[Remote][TID: {tid}]\tFound\t@\t{start} - {start + k - 1L}"
+                                    let foundStr = $"[Remote][TID: {tid}]\tFound\t@\t{start} - {start + k - 1L}\n[CPU Time]: {int64 cpuTime}ms\t [Absolute Time]: {timer.ElapsedMilliseconds}ms"
                                     printer <! Output(res)
                                     printfn $"{foundStr}"
                                     printer <! (foundStr)
@@ -352,7 +372,7 @@ let client = spawn system "coordinator" coordinator
 let N = fsi.CommandLineArgs.[1] |> int64
 let K = fsi.CommandLineArgs.[2] |> int64
 let T = fsi.CommandLineArgs.[3] |> int64
-client <! TaskSize(int64 1E7)
+client <! TaskSize(int64 1E8)
 client <! Input(N, K, T)
 
 Console.ReadLine() |> ignore

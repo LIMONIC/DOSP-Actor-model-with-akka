@@ -11,6 +11,7 @@ open Akka.FSharp
 open Akka.TestKit
 open Akka.Remote
 open Akka.Serialization
+open System.Diagnostics
 
 let configuration = 
     ConfigurationFactory.ParseString(

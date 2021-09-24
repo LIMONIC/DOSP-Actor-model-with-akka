@@ -1,4 +1,4 @@
-// module Utils
+module Utils
 
 open System
 open System.Security.Cryptography
