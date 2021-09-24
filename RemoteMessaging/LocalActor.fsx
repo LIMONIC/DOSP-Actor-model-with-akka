@@ -1,58 +1,51 @@
 #time "on"
-#load "./Utils.fsx"
+#load "Utils.fsx"
 #r "nuget: Akka.FSharp"
+#r "nuget: Akka.Remote"
 #r "nuget: Akka.TestKit"
+#r "nuget: Akka.Serialization.Hyperion"
+
 
 open System
-open Utils
 open Akka.Actor
+open Akka.Configuration
 open Akka.FSharp
+open Akka.TestKit
+open Akka.Remote
+open Akka.Serialization
 open System.Diagnostics
+open Utils
 
-let system = ActorSystem.Create("StringDigger", Configuration.defaultConfig())
-// Use Actor system for naming
-// let system = System.create "my-system" (Configuration.load())
+let configuration = 
+    ConfigurationFactory.ParseString(
+        @"akka {
+            actor {
+                serializers {
+                    hyperion = ""Akka.Serialization.HyperionSerializer, Akka.Serialization.Hyperion""
+                }
+                serialization-bindings {
+                    ""System.Object"" = hyperion
+                } 
+                provider = ""Akka.Remote.RemoteActorRefProvider, Akka.Remote""
+            }
+            remote {
+                helios.tcp {
+                    port = 8778
+                    hostname = ""127.0.0.1""
+                }
+            }
+        }")
 
-let measureTime f = 
-    let proc = Process.GetCurrentProcess()
-    let cpu_time_stamp = proc.TotalProcessorTime
-    let timer = new Stopwatch()
-    timer.Start()
-    try
-        f()
-        timer.Stop()
-    finally
-        let cpu_time = (proc.TotalProcessorTime-cpu_time_stamp).TotalMilliseconds
-        printfn "CPU time = %dms" (int64 cpu_time)
-        printfn "Absolute time = %dms" timer.ElapsedMilliseconds
+let system = ActorSystem.Create("StringDigger", configuration)
 
-let measurePrinter (mailbox:Actor<_>) =
-    let mutable cpu = 0
-    let mutable real = 0
-    let containPrefix (p:string) (s:string) = s.StartsWith(p)
-    let rec loop () = actor {
-        let! message = mailbox.Receive()
-        // printfn "worker acotr receive msg: %A" message
-        match box message with
-        | :? string -> 
-            if message |> containPrefix "[cpu]" then 
-                cpu <- (cpu + (message.[5..] |> int))
-                // printfn $"[MEASURE]: cpu time: {cpu}"
-            else 
-                real <- (real + (message.[6..] |> int))
-                // printfn $"[MEASURE]: cpu time: {real}"
-        | _ -> ()
-        if real <> 0 then printfn $"\n[MEASURE]: cpu/real: {(float cpu)/(float real)}\n"
-        return! loop()
-    }
-    loop()
-let measurePrinterRef = spawn system "measurePrinter" measurePrinter
-
+(*/ Union for actor messages /*)
 type Information = 
     | TaskSize of (int64)
     | Input of (int64*int64*int64)
     | Output of (list<string * string>)
+    | Register of (string)
     | Done of (string)
+
 
 (*/ Print results and send them to server /*)
 let printer (mailbox:Actor<_>) =
@@ -87,29 +80,29 @@ let printerRef = spawn system "printer" printer
 let worker (mailbox:Actor<_>) =
     let rec loop () = actor {
         let! message = mailbox.Receive()
+        // printfn "worker acotr receive msg: %A" message
         let outBox = mailbox.Sender()
         let tid = Threading.Thread.CurrentThread.ManagedThreadId
         match message with
         | Input(start, k, zeros) -> 
             let proc = Process.GetCurrentProcess()
-            let cpu_time_stamp = proc.TotalProcessorTime
+            let cpuTimeStamp = proc.TotalProcessorTime
             let timer = new Stopwatch()
             timer.Start()
             let res = getValidStr (start, k, zeros)
             timer.Stop()
-            let cpu_time = (proc.TotalProcessorTime-cpu_time_stamp).TotalMilliseconds
-            measurePrinterRef <! sprintf "[cpu]%d" (int64 cpu_time)
-            measurePrinterRef <! sprintf "[real]%d" timer.ElapsedMilliseconds
+            let cpuTime = (proc.TotalProcessorTime-cpuTimeStamp).TotalMilliseconds
             if res.IsEmpty 
                 then 
-                    outBox <! Done($"[TID: {tid}]\tNotFound! \t[CPU Time]: {int64 cpu_time}ms\t [Absolute Time]: {timer.ElapsedMilliseconds}ms")
+                    outBox <! Done($"[TID: {tid}]\tNotFound!\t@\t{start} - {start + k - 1L}\n[CPU Time]: {int64 cpuTime}ms\t [Absolute Time]: {timer.ElapsedMilliseconds}ms")
                 else 
                     outBox <! Output(res)
-                    outBox <! Done($"[TID: {tid}]\tFound!\t")
+                    outBox <! Done($"[TID: {tid}]\tFound!\t\t@\t{start} - {start + k - 1L}\n[CPU Time]: {int64 cpuTime}ms\t [Absolute Time]: {timer.ElapsedMilliseconds}ms")
         | _ -> ()
         return! loop()
     }
     loop()
+ 
 
 let localActor (mailbox:Actor<_>) = 
     let actcount = System.Environment.ProcessorCount |> int64
@@ -122,23 +115,31 @@ let localActor (mailbox:Actor<_>) =
             [1L .. totalWorkers]
             |> List.map(fun id -> spawn system (sprintf "Local_%d" id) worker)
 
-    let workerenum = [|for i = 1 to workersPool.Length do (sprintf "/user/Local_%d" i)|]
+    let workerenum = [|for i = 1 to workersPool.Length + 1 do (sprintf "/user/Local_%d" i)|]
     let workerSystem = system.ActorOf(Props.Empty.WithRouter(Akka.Routing.RoundRobinGroup(workerenum)))
     let mutable completedLocalWorkerNum = 0L
+    let mutable completedRemoteWorkerNum = 0L
     let mutable localActorNum = totalWorkers
+    let mutable remoteActorNum = 0L
     let mutable taskSize = 1E6 |> int64
 
 // Assign tasks to worker
     let rec loop () = actor {
         let! message = mailbox.Receive()
-        // printfn $"[DEBUG]: Boss received {message}"
+        let sender = mailbox.Sender()
+        // printfn $"Boss received {message}"
         match message with 
         | TaskSize(size) -> taskSize <- size
+        | Register info -> 
+            remoteActorNum <- remoteActorNum + 1L
+            printfn $"[INFO]: Remoter actor No.: {remoteActorNum}"
+            sender <! Register "Acknowledged"
         | Input(n,k,t) -> 
             // task init
             let totalTasks = k - n
             let requiredActorNum = 
                 if totalTasks % taskSize = 0L then totalTasks / taskSize else totalTasks / taskSize + 1L
+            // printfn "taskNum %d" taskNum
             let assignTasks (size, actors) = 
                 printfn $"[DEBUG]: Task size: {size}"
                 [1L..actors] |> List.iteri(fun i x -> 
@@ -156,16 +157,23 @@ let localActor (mailbox:Actor<_>) =
             | _ when requiredActorNum < localActorNum -> 
                 // reduce actor numbers
                 localActorNum <- requiredActorNum
+                // printfn $"totalTasks: {totalTasks}  actorNum: {localActorNum}"
                 if totalTasks < taskSize then assignTasks(totalTasks, requiredActorNum) else assignTasks(taskSize, requiredActorNum)
             | _ -> failwith "[ERROR] wrong taskNum"
             // printfn "End Input"
         | Output (res) -> 
             printerRef <! Output(res)
         | Done(completeMsg) ->
-            completedLocalWorkerNum <- completedLocalWorkerNum + 1L
-            printfn $"> {completeMsg} \tcompleted:{completedLocalWorkerNum} \ttotal:{localActorNum}" 
-            if completedLocalWorkerNum = localActorNum then
-                printerRef <! Done($"All tasks completed! local: {completedLocalWorkerNum}")
+            let containPrefix (p:string) (s:string) = s.StartsWith(p)
+            if completeMsg |> containPrefix "RemoteDone"
+                then
+                    completedRemoteWorkerNum <- completedRemoteWorkerNum + 1L
+                    printfn $"> {completeMsg} \tcompleted:{completedRemoteWorkerNum} \ttotal:{remoteActorNum}" 
+                else
+                    completedLocalWorkerNum <- completedLocalWorkerNum + 1L
+                    printfn $"> {completeMsg} \tcompleted:{completedLocalWorkerNum} \ttotal:{localActorNum}" 
+            if completedLocalWorkerNum = localActorNum && completedRemoteWorkerNum = remoteActorNum then
+                printerRef <! Done($"All tasks completed! local: {completedLocalWorkerNum}, remote: {completedRemoteWorkerNum}")
                 mailbox.Context.System.Terminate() |> ignore
         // | _ -> ()
         return! loop()
@@ -173,11 +181,14 @@ let localActor (mailbox:Actor<_>) =
     loop()
 
 let client = spawn system "localActor" localActor
+// spawn system "localActor" localActor
+// spawn system "receiver" receiver
+// system.ActorOf(Props.Empty.WithRouter(new Akka.Routing.RoundRobinGroup("/user/receive")), "StringDigger");
 // Input from Command Line
 let N = fsi.CommandLineArgs.[1] |> int64
 let K = fsi.CommandLineArgs.[2] |> int64
 let T = fsi.CommandLineArgs.[3] |> int64
-// client <! TaskSize(int64 1E6)
+client <! TaskSize(int64 2.5E6)
 client <! Input(N, K, T)
 // Wait until all the actors has finished processing
 system.WhenTerminated.Wait()

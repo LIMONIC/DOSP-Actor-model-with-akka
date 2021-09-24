@@ -94,27 +94,29 @@ worker (0, 1000000, 4)
 let prefix = "hongru.liu;"
 let lengthOfStr = Console.ReadLine()
 
-//transfer type of lengthOfSting from string to int
-let parse (s: string) =
-    match (System.Int32.TryParse(s)) with
-    | (true, value) -> value
-    | (false, _) -> failwith "Invalid int"
-let length = parse(lengthOfStr)
+/// iterate string
 
-//put all the element in chars
-let chars = "abcdefghijklmnopqrstuvwxyz0123456789"
-let charsLen = chars.Length
 
-//function: get randomString
-let randomStr = 
-    let random = System.Random()
-    fun len -> 
-        let randomChars = [|for i in 0..len -> chars.[random.Next(charsLen)]|]
-        new System.String(randomChars)
+// worker main logic: iterate string and find valid ones
+let worker (start, iteration, zeros) = 
+    // convert start number to string
+    // let startStr = start |> decimalTo62
+    for i = 0 to iteration do
+        let str = (i |> decimalToStr)
+        printfn "%s" str
+        // validateSHAStr (str |> generateSHA256Str) zeros
+    // printfn ""
 
-let randomString = prefix + randomStr(length)
-printfn "%s" randomString
+worker (0, 100, 10)
 
+/// **************TEST*****************
+// // Test: print out SHA256 String
+// let str = "7wLfA2pSBgg2e6A"
+// let res = generateSHA256Str str
+// printfn "%s" res
+// // Test: check if SHA256 of a string is valid
+// validateSHAStr res 2 |> printfn "%d"
+/// ***********************************
 
 //test output
 let res1 = generateSHA256Str randomString
