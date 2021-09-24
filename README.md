@@ -1,12 +1,27 @@
-# DOSP-projects
-Implement actor model with F# and AKKA.net.
+# Distributed Operating System Projects 1
+This project implented distributed computing systems based on actor model with F# and Akka.NET to handel intense computational tasks. To simulate high-intensity computaional tasks, the project takes reference from the Bitcoin's concept of finding some input string whose output values matches a specefic pattern after a cryptographic hashing computation.
+## Problem Definition
+Given a string, use SHA-256 to produce a hash value. Check if the heading part of the hash value contains a specefic number of consecutive zeros. Only the string's hash value that matches the rule are considered valid. The higher the number of zeros, the more difficult it is to find a valid string.
 
-## Part 1
+For example:   
+An input string,"hongru.liu;jrs", gives a SHA- 256 hash value of "000000E9EF6A44DC2F5BA00873909A682032E9329FB29C95FE199482B352B923", which matches with the rule of six zeros.
+
+* All of the input string are starting with "hongru.liu;" to ensure their specificity. It cna be omitted or replaced with any string.
+
+## Part 1 - String Generation and Validation
 
 **Input:** The number of leading zeros required for a valid SHA256 string
 
 **Output** \<Input string>  \<Corresponding SHA256 hash>
+### File Path
+```
+```
+### Usage
+```Console
 
+```
+
+## Part 2
 ### Data Structure
 `<ID>;<String>`
 
@@ -35,6 +50,8 @@ hongru.liu;fOy5h        0000000B8288B442DE93893F6BCFE766A218A0B1C3AFAFCC5237780B
 ### 8 Zeros
 0 - 15000000: not found
 
+0 5000000000 8 
+hongru.liu;2a1sqw       0000000037A4530C0D13C1050B7D3F3921B150B25C6DE013B79CDF5A80485663
 
 ### 9 Zeros
 
