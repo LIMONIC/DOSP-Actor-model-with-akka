@@ -1,5 +1,5 @@
 # Distributed Operating System Projects 1
-This project implented distributed computing systems based on actor model with F# and Akka.NET to handel intense computational tasks. To simulate high-intensity computaional tasks, the project takes reference from the Bitcoin's concept of finding some input string whose output values matches a specefic pattern after a cryptographic hashing computation.
+This project implemented distributed computing systems based on actor model with F# and Akka.NET to handle intense computational tasks. To simulate high-intensity computaional tasks, the project takes reference from the Bitcoin's concept of finding some input string whose output values matches a specefic pattern after a cryptographic hashing computation.
 ## Problem Definition
 Given a string, use SHA-256 to produce a hash value. Check if the heading part of the hash value contains a specefic number of consecutive zeros. Only the string's hash value that matches the rule are considered valid. The higher the number of zeros, the more difficult it is to find a valid string.
 
@@ -22,7 +22,7 @@ An input string,"hongru.liu;jrs", gives a SHA- 256 hash value of "000000E9EF6A44
 dotnet fsi .\PrintValidStrings.fsx <zero number>
 ```
 ### Algorithm
-1. The progeram takes decimal numbers as input and conver then to 62 decimal representation according to a dictionary consisting with numbers, lowercase letters and uppercase letters in order.
+1. The progeram takes decimal numbers as input and convert them to 62 decimal representation according to a dictionary consisting with numbers, lowercase letters and uppercase letters in order.
 2. Concatenate a specified string to the front of the convertered string
 3. Generate SHA-256 hash of the string by using System.Security.Cryptography library.
 4. Match the number of heading zeros of the hash string
