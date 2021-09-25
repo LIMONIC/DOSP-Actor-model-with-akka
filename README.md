@@ -176,9 +176,11 @@ Not found within first 20 billion redords
 # Summay of Key Results
 * Size of the work unit that you determined results in the best performance for your implementation and an explanation of how you determined it.
 
-TEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXT
+  In our actor model, when we set task size as 10000 and number of actors as 100, the model results in the best performance with an average ratio of CPU time and real time equals to 2.45 running on a MacBook Pro with Dual-Core Intel Core i5 Processor.  
+  We tried to assign different task sizes to different number of actors to test the performance of our model. Consider the difference performance for same task size and actor number each time, we choose to run each situation three times and get their average ratio as the performance. We choose to test task size ranging from 1E3 to 1E7 and worker number ranging from 1 to 500 based on the number of processors and time feasibility. According to the average ratio of CPU time to real time for each situation, setting task size as 10000 and number  of actors as 100 will lead to best performance.
 
-The size of the work unit refers to the number of sub-problems that a worker gets in asingle request from the boss.
+
+  The size of the work unit refers to the number of sub-problems that a worker gets in a single request from the boss.
 
 
 * The result of running your program for input 4
