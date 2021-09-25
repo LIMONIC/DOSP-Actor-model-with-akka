@@ -89,75 +89,118 @@ The local actor model was running on a MacBook Pro with Dual-Core Intel Core i5 
     First: Real: 00:00:05.450, CPU: 00:00:12.949<br>
     Second: 00:00:04.410, CPU: 00:00:11.538<br>
     Third: 00:00:05.515, CPU: 00:00:13.093<br>
-![CPU to real time ratio](./Img/Picture1.png)
+![CPU to real time ratio](./Img/Picture1.png)<br><br>
 
 ### Part 2b: Multiple Machine Distributed System - Based on Remote Message
+#### Description
+This distributed system consists of two parts, the local side and the remote side. It can works with multiple remote clients if necessary. The implementation principle of this system is based on AKKA's remote messaging mechanism. Each system, both local and remote, contains a boss actor that dynamically assigns tasks to its own workers based on input. The diffenence is that the remote workers send their results to an actor within the system, called "post man". The "post man" collects and packages the results and send to the printer acter hosted by local system, which receives and prints the results from all the workers.
 
-### Part 2c: Multiple Machine Distributed System - Based on Remote Actor
-### Data Structure
-`<ID>;<String>`
+* An architecture diagram can be seen as follow
+![System Architecture](./Img/Remote1.svg)<br><br>
+#### Performance
+The performance of this system was tested in experiments looking for string with 5 and 6 heading zeros.
 
-Example: </br>
-  **input string:** 12345678;abcdefg </br>
-  **SHA256:** 3814A8C95BBEB45FB42265B97ABDE8BBE26467B218415E5B9CB1FE4B078B7201
+**Experimental environment**
+* Actor size: 1E6 tasks/actor
+* Actor number: 20 actors/processor (under the premise of satisfying actor size)
+* System info: 
+    >Processor	Intel(R) Core(TM) i9-9980HK CPU @ 2.40GHz<br>
+    >Installed RAM	32.0 GB (31.7 GB usable)<br>
+    >System type	64-bit operating system, x64-based processor<br>
 
+**Result**
 
-### 6 Zeros:
-0L, 10000000L
-
-"hongru.liu;jrs",
-  "000000E9EF6A44DC2F5BA00873909A682032E9329FB29C95FE199482B352B923"
-
-Real: 00:05:28.639, CPU: 00:07:47.046, GC gen0: 24160, gen1: 1250, gen2: 5
-Real: 00:14:39.383, CPU: 00:17:25.046, GC gen0: 29551, gen1: 2319, gen2: 9
-Real: 00:11:24.845, CPU: 00:14:13.328, GC gen0: 29550, gen1: 614, gen2: 7
-
+The system achieved a average **CPU time to absolute time ratio of 2.77**, which is a significient increasement from single machine distributed system.
+#### **5 Zeros**
+```
+hongru.liu;3Ox2         00000967B256A56C94BA2A02A0261271C9712E307E4F6F0437F853A2273598BE
+hongru.liu;6A7L         000001707EFF51F4891AF5040D2A3246ED82A061989073B977706450C5C361FC
+hongru.liu;100d2        00000B3F8DE46BBDD3303D2D29886CC6DC4229AF7C8DFD1CDB5927C2041F1DE0
+```
+#### **6 Zeros**
+```
 hongru.liu;1queD        000000F07D86CD6F4BE79ED6A5C19DDEEDDC5B9ADD0DDF3355F0D50CE80A0D60
 hongru.liu;30VFn        000000240530A7C57B3825953318475E0128482D497EE506ED6249691364A536
 hongru.liu;31iv4        000000EC5D92B8796FCC61F9B2D139C578046D50ECC239CDCE8DE74172E9E325
+```
+#### Pro v.s. Con
+* No location transparency of the actors between local and remote systems
+* Communication between local and romote systems increases the running time and increases the probability of system errors.
+* It needs to manually assign tasks to each sub-system
+* The good point of this system is that the logic is not complecated. And it easy to implement.
+### Part 2c: Multiple Machine Distributed System - Based on Remote Actor
+This system is implemented based AKKA's remote actor. Improvements have been made to address the shortcomings of the previous system. Similar to the previous distributed system, this system also consists of two parts - server side and client side. The server runs locally while the client can run anywhere else. The difference with the previous one is that there is no boss actor on the client side, and all worker generation and task assignment are handled by the boss actor on the server side.
 
-### 7 Zeros
+To ensure reliable communication between the server and the clients, a handshake mechanism is used at the very beginning when the connection is established. The client will return the number of its processors to the server so that the server can assign tasks based on this information.
 
+After the commection estabilished, the server pushes a code snippet containing the worker's logic to all clients. The workers in each client system are spwan by the server. And the number of workers is decided based on the processor information previously sent by the client. In order to ensure that all the workers in the client have the same chance of being called, all the workers from the client are randomly numbered. Both locally generated workers on the server side and remote workers are added to the same pool, which is called in the order of remote first and then local.
+
+* Following is an architecture diagram of this system
+![System Architecture](./Img/Remote2.svg)<br><br>
+
+#### Performance
+The performance of this system was tested in experiments looking for string with 7, 8, 9 and more heading zeros.
+
+**Experimental environment**
+* Actor size: 1E6 tasks/actor
+* Actor number: 20 actors/processor (under the premise of satisfying actor size)
+* System info: 
+    >Processor	Intel(R) Core(TM) i9-9980HK CPU @ 2.40GHz<br>
+    >Installed RAM	32.0 GB (31.7 GB usable)<br>
+    >System type	64-bit operating system, x64-based processor<br>
+
+    >Processor	Intel(R) Core(TM) i7-8650U CPU @ 2.11 GHz<br>
+    >Installed RAM	8.00 GB<br>
+    >System type	64-bit operating system, x64-based processor<br>
+
+**Result**
+
+The system achieved a average **CPU time to absolute time ratio of 3.17**.
+#### **7 Zeros**
+```
 hongru.liu;fOy5h        0000000B8288B442DE93893F6BCFE766A218A0B1C3AFAFCC5237780B5B9BBE11
-### 8 Zeros
-0 - 15000000: not found
-
-0 5000000000 8 
+```
+#### **8 Zeros**
+```
 hongru.liu;2a1sqw       0000000037A4530C0D13C1050B7D3F3921B150B25C6DE013B79CDF5A80485663
+```
+#### **9 Zeros**
+```
+Not found within first 20 billion redords
+```
+#### Pro v.s. Con
+* Location transparency for all worker actors in local and remote systems
+* Server assigns the task to the remote systems
+* When updating the worker logic, only code in server side need to be changed 
 
-### 9 Zeros
+# Summay of Key Results
+* Size of the work unit that you determined results in the best performance for your implementation and an explanation of how you determined it.
 
-15000000 70000000 7
-0 7000000000 9 not found
-
-### 10 Zeros
-0 125000000
-Real: 01:09:52.756, CPU: 01:16:53.390, GC gen0: 68919, gen1: 3015, gen2: 43
-
-125000000 250000000
-Real: 00:28:20.337, CPU: 00:13:52.375, GC gen0: 68375, gen1: 4398, gen2: 5
-
-250000000 375000000
-Real: 00:28:18.032, CPU: 00:13:43.453, GC gen0: 68344, gen1: 3434, gen2: 5
-
-375000000 500000000
-Real: 00:27:18.314, CPU: 00:13:43.937, GC gen0: 68367, gen1: 4630, gen2: 5
-
-500000000 6000000000 10
-
-
-Size of the work unit that you determined results in the best performance for your implementation and an explanation of how you determined it.
-7
+TEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXTTEXT
 
 The size of the work unit refers to the number of sub-problems that a worker gets in asingle request from the boss.
 
 
-The result of running your program for input 4
+* The result of running your program for input 4
+  #### <u>**Some results of 4 Zeros**</u>
+  ```
+  hongru.liu;2E6n 0000501E37E5C98D6034EEE7ACE2863AF7B4935DFF5F3921282202239B00BF93
+  hongru.liu;33Ht 00005EF7566BE988B00CC0D0304BB7F961B312B6826BA1D1CC97B14E030CFEBA
+  hongru.liu;3fOo 00006F27DEDB3834C80FA89F37C1923C5CF9496970122A81327A98FC98F7D9BD
+  hongru.liu;3u4p 00005EF788361C162586E2EF28C88FAAC576C102B4BC1054DBA6EBC2C7EF6196
+  hongru.liu;3vqR 0000109E229D125BBB349BDE95A9D97467A5AAB5CF8FDBEF8A28770B1906D1C7
+  ```
 
-The running time for the above as reported by time for the above and report the time.  The ratio of CPU time to REAL TIME tells you how many cores were effectively used in the computation.  If you are close to 1 you have almost no parallelism (points will be subtracted).
+* The running time for finding 4 zeros
 
+  With the system of 2c, the CPU time in average is 3046ms and the real time is 1121ms, providing a CPU-real time ratio of 2.72.
 
-The coin with the most 0s you managed to find.
+* The coin with the most 0s you managed to find.
+  
+  **8 Zeros.** 
+  ```
+  hongru.liu;2a1sqw       0000000037A4530C0D13C1050B7D3F3921B150B25C6DE013B79CDF5A80485663
+  ```
+* The largest number of working machines you were able to run your code with.
 
-
-The largest number of working machines you were able to run your code with.
+  2 physical machine that running 1 server on local, running 6 clients on 6 virtual machines.  
