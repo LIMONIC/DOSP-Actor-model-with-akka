@@ -1,12 +1,12 @@
 # Distributed Operating System Projects 1
-This project implemented distributed computing systems based on actor model with F# and Akka.NET to handle intense computational tasks. To simulate high-intensity computaional tasks, the project takes reference from the Bitcoin's concept of finding some input string whose output values matches a specefic pattern after a cryptographic hashing computation.
+This project implemented distributed computing systems based on actor model with F# and Akka.NET to handle intense computational tasks. To simulate high-intensity computational tasks, the project takes reference from Bitcoin's concept of finding some input string whose output values match a specific pattern after a cryptographic hashing computation.
 ## Problem Definition
-Given a string, use SHA-256 to produce a hash value. Check if the heading part of the hash value contains a specefic number of consecutive zeros. Only the string's hash value that matches the rule are considered valid. The higher the number of zeros, the more difficult it is to find a valid string.
+Given a string, use SHA-256 to produce a hash value. Check if the heading part of the hash value contains a specific number of consecutive zeros. Only the string's hash value that matches the rule is considered valid. The higher the number of zeros, the more difficult it is to find a valid string.
 
 For example:   
 An input string,"hongru.liu;jrs", gives a SHA- 256 hash value of "000000E9EF6A44DC2F5BA00873909A682032E9329FB29C95FE199482B352B923", which matches with the rule of six zeros.
-
-* All of the input string are starting with "hongru.liu;" to ensure their specificity. It cna be omitted or replaced with any string.
+ 
+* All of the input strings are starting with "hongru.liu;" to ensure their specificity. It can be omitted or replaced with any string.
 
 ## Part 1 - String Generation and Validation
 
@@ -22,13 +22,13 @@ An input string,"hongru.liu;jrs", gives a SHA- 256 hash value of "000000E9EF6A44
 dotnet fsi .\PrintValidStrings.fsx <zero number>
 ```
 ### Algorithm
-1. The progeram takes decimal numbers as input and convert them to 62 decimal representation according to a dictionary consisting with numbers, lowercase letters and uppercase letters in order.
-2. Concatenate a specified string to the front of the convertered string
+1. The program takes decimal numbers as input and converts them to 62 decimal representations according to a dictionary consisting of numbers, lowercase letters and uppercase letters in order.
+2. Concatenate a specified string to the front of the converted string
 3. Generate SHA-256 hash of the string by using System.Security.Cryptography library.
 4. Match the number of heading zeros of the hash string
 5. Add valid string into a list, and return the list when finished 
 ### Performance
-* Due to the nature of this single-thread progrom, the average ratio of CPU time to absolute time for the experiences with zero number from 0 to 4 is close to 1, which is **0.93**. The reason of why absolute time is longer than CPU time can be considered as the extra time for printing results or unnecessary waiting time happened during program running. 
+* Due to the nature of this single-thread program, the average ratio of CPU time to absolute time for the experiences with zero number from 0 to 4 is close to 1, which is **0.93**. The reason why absolute time is longer than CPU time can be considered as the extra time for printing results or unnecessary waiting time happening during program running. 
 ### Selected Results
 #### **1 Zeros**
 ```
@@ -70,20 +70,29 @@ hongru.liu;2tLq 00008EB5B64B8B94D0E5F83F6A5257269648D26D6087A088D97735CBCAF74E88
 ## Part 2 - Distributed Implementation
 ### Part 2a: Single Machine Distributed System
 #### Logic of Local Actor Model
-The goal of this project is to generate bitcoins with the required number of leading zeros using actor model and extend to multi-core machines to take part in bitcoin generation. 
-In our local actor model, an Actor system is created for naming. Then we create a local actor as the boss of works. The boss calculates the total workers based on the number of processors in the machine. Next, the boss recursively sends tasks to workers. After workers finding out if there are valid string pairs, they return the output and status messages to their boss for printing the results.
+The goal of this project is to generate bitcoins with the required number of leading zeros using the actor model and extend to multi-core machines to take part in bitcoin generation. 
+In our local actor model, an Actor system is created for naming. Then we create a local actor as the boss of the work. The boss calculates the total workers based on the number of processors in the machine. Next, the boss recursively sends tasks to workers. After workers find out if there are valid string pairs, they return the output and status messages to their boss for printing the results.
+
+#### File Path
+```
+.\part2\SingleMachineSystem\ActorModel.fsx
+```
+#### Usage
+```Console
+dotnet fsi ActorModel.fsx <starting number> <Iterations> <target zeros>
+```
 #### Function Description
 1. Utils contains functions for generate the strings, hash with SHA-256 and return
-    1. decimalToStr(int64) transfer an integer of decimal base to 62-decimal base.
-    2. generateSHA256(string) generates the SHA-256 of input string and make them a pair.
+    1. decimalToStr(int64) transfers an integer of decimal base to 62-decimal base.
+    2. generateSHA256(string) generates the SHA-256 of input strings and makes them a pair.
     3. vaildateSHAStr(SHA256str, zeros) checks if the SHA256Str contains the number of zero.
-    4. getValidStr (start, iteration, zeros) gets a list including all the string and SHA256Str pairs that contains certain number of zeros.
+    4. getValidStr (start, iteration, zeros) gets a list including all the string and SHA256Str pairs that contain a certain number of zeros.
 2. Actormodel contains functions to build the actor model and print all the valid string pairs.
-    1. localActor (mailbox: Actor<_>) sets the number of workers and task size, recursively assign tasks to each worker through message and incept results from workers to print.
-    2. Workers (mailbox: Actor<_>) receives the tasks, mining for bitcoins and return the valid string to the local actor.
-    3. Printer (mailbox: Actor<_>) print results and send them to server.
+    1. localActor (mailbox: Actor<_>) sets the number of workers and task size, recursively assigns tasks to each worker through message and incept results from workers to print.
+    2. Workers (mailbox: Actor<_>) receive the tasks, mining for bitcoins and return the valid string to the local actor.
+    3. Printer (mailbox: Actor<_>) print results and send them to the server.
 #### Performance 
-The local actor model was running on a MacBook Pro with Dual-Core Intel Core i5 Processor. And we tried to assign different task size to different number of actors to test the performance of our model. Consider the difference performance for same task size and actor number each time, we choose to run each situation three times and get their average ratio as the performance. We choose to test task size ranging from 1E3 to 1E7 and worker number ranging from 1 to 500 based on the number of processors and time feasibility. According to the average ratio of CPU time to real time for each situation, we made the 2_D line chart to show the relation between task size and number of actors. For most cases of actors, they reach to highest ratio when each actor is assigned with the task size of 10000 to 100000. And the worker number among 10 to 100 tends to have a better performance than larger number of actors, such as 500.  With the increasing of the task size, the performance of the model goes down. For the best performance, the average ratio is 2.45 when there are 100 workers, and each worker is assigned with 1000 tasks. The following output was achieved on running the local actor model:
+The local actor model was running on a MacBook Pro with Dual-Core Intel Core i5 Processor. And we tried to assign different task sizes to different numbers of actors to test the performance of our model. Consider the difference performance for the same task size and actor number each time, we choose to run each situation three times and get their average ratio as the performance. We choose to test task size ranging from 1E3 to 1E7 and worker number ranging from 1 to 500 based on the number of processors and time feasibility. According to the average ratio of CPU time to real time for each situation, we made the 2_D line chart to show the relation between task size and number of actors. For most cases of actors, they reach the highest ratio when each actor is assigned with the task size of 10000 to 100000. And the worker number among 10 to 100 tends to have a better performance than a larger number of actors, such as 500.  With the increasing task size, the performance of the model goes down. For the best performance, the average ratio is 2.45 when there are 100 workers, and each worker is assigned with 1000 tasks. The following output was achieved on running the local actor model:
 * The following output was achieved on running the local actor model:<br>
     Task size:1E4</t>	Number of Actors: 100</t>	average ratio = 2.45<br>
     First: Real: 00:00:05.450, CPU: 00:00:12.949<br>
@@ -93,12 +102,23 @@ The local actor model was running on a MacBook Pro with Dual-Core Intel Core i5 
 
 ### Part 2b: Multiple Machine Distributed System - Based on Remote Message
 #### Description
-This distributed system consists of two parts, the local side and the remote side. It can works with multiple remote clients if necessary. The implementation principle of this system is based on AKKA's remote messaging mechanism. Each system, both local and remote, contains a boss actor that dynamically assigns tasks to its own workers based on input. The diffenence is that the remote workers send their results to an actor within the system, called "post man". The "post man" collects and packages the results and send to the printer acter hosted by local system, which receives and prints the results from all the workers.
+This distributed system consists of two parts, the local side and the remote side. It can works with multiple remote clients if necessary. The implementation principle of this system is based on AKKA's remote messaging mechanism. Each system, both local and remote, contains a boss actor that dynamically assigns tasks to its own workers based on input. The difference is that the remote workers send their results to an actor within the system, called "postman". The "postman" collects and packages the results and sends them to the printer actor hosted by the local system, which receives and prints the results from all the workers.
 
 * An architecture diagram can be seen as follow
 ![System Architecture](./Img/Remote1.svg)<br><br>
+
+#### File Path
+```
+.\part2\MultipleMachineSystem\RemoteMessaging\LocalActor.fsx
+.\part2\MultipleMachineSystem\RemoteMessaging\RemoteActor.fsx
+```
+#### Usage
+```Console
+dotnet fsi LocalActor.fsx <starting number> <Iterations> <target zeros>
+dotnet fsi RemoteActor.fsx <starting number> <Iterations> <target zeros>
+```
 #### Performance
-The performance of this system was tested in experiments looking for string with 5 and 6 heading zeros.
+The performance of this system was tested in experiments looking for strings with 5 and 6 heading zeros.
 
 **Experimental environment**
 * Actor size: 1E6 tasks/actor
@@ -110,7 +130,7 @@ The performance of this system was tested in experiments looking for string with
 
 **Result**
 
-The system achieved a average **CPU time to absolute time ratio of 2.77**, which is a significient increasement from single machine distributed system.
+The system achieved a average **CPU time to absolute time ratio of 2.77**, which is a significant increase from a single machine distributed system.
 #### **5 Zeros**
 ```
 hongru.liu;3Ox2         00000967B256A56C94BA2A02A0261271C9712E307E4F6F0437F853A2273598BE
@@ -125,21 +145,32 @@ hongru.liu;31iv4        000000EC5D92B8796FCC61F9B2D139C578046D50ECC239CDCE8DE741
 ```
 #### Pro v.s. Con
 * No location transparency of the actors between local and remote systems
-* Communication between local and romote systems increases the running time and increases the probability of system errors.
+* Communication between local and remote systems increases the running time and increases the probability of system errors.
 * It needs to manually assign tasks to each sub-system
-* The good point of this system is that the logic is not complecated. And it easy to implement.
+* The good point of this system is that the logic is not complicated. And it is easy to implement.
 ### Part 2c: Multiple Machine Distributed System - Based on Remote Actor
-This system is implemented based AKKA's remote actor. Improvements have been made to address the shortcomings of the previous system. Similar to the previous distributed system, this system also consists of two parts - server side and client side. The server runs locally while the client can run anywhere else. The difference with the previous one is that there is no boss actor on the client side, and all worker generation and task assignment are handled by the boss actor on the server side.
+This system is implemented based on AKKA's remote actor. Improvements have been made to address the shortcomings of the previous system. Similar to the previous distributed system, this system also consists of two parts - server side and client side. The server runs locally while the client can run anywhere else. The difference with the previous one is that there is no boss actor on the client side, and all worker generation and task assignment are handled by the boss actor on the server side.
 
 To ensure reliable communication between the server and the clients, a handshake mechanism is used at the very beginning when the connection is established. The client will return the number of its processors to the server so that the server can assign tasks based on this information.
 
-After the commection estabilished, the server pushes a code snippet containing the worker's logic to all clients. The workers in each client system are spwan by the server. And the number of workers is decided based on the processor information previously sent by the client. In order to ensure that all the workers in the client have the same chance of being called, all the workers from the client are randomly numbered. Both locally generated workers on the server side and remote workers are added to the same pool, which is called in the order of remote first and then local.
+After the connection is established, the server pushes a code snippet containing the worker's logic to all clients. The workers in each client system are spawn by the server. And the number of workers is decided based on the processor information previously sent by the client. In order to ensure that all the workers in the client have the same chance of being called, all the workers from the client are randomly numbered. Both locally generated workers on the server side and remote workers are added to the same pool, which is called in the order of remote first and then local.
 
 * Following is an architecture diagram of this system
 ![System Architecture](./Img/Remote2.svg)<br><br>
 
+#### File Path
+```
+.\part2\MultipleMachineSystem\RemoteActor\Server.fsx
+.\part2\MultipleMachineSystem\RemoteActor\Client.fsx
+```
+#### Usage
+```Console
+dotnet fsi Server.fsx <starting number> <Iterations> <target zeros>
+dotnet fsi Client.fsx
+```
+
 #### Performance
-The performance of this system was tested in experiments looking for string with 7, 8, 9 and more heading zeros.
+The performance of this system was tested in experiments looking for strings with 7, 8, 9 and more heading zeros.
 
 **Experimental environment**
 * Actor size: 1E6 tasks/actor
@@ -166,7 +197,7 @@ hongru.liu;2a1sqw       0000000037A4530C0D13C1050B7D3F3921B150B25C6DE013B79CDF5A
 ```
 #### **9 Zeros**
 ```
-Not found within first 20 billion redords
+Not found within first 20 billion records
 ```
 #### Pro v.s. Con
 * Location transparency for all worker actors in local and remote systems
@@ -177,14 +208,11 @@ Not found within first 20 billion redords
 * Size of the work unit that you determined results in the best performance for your implementation and an explanation of how you determined it.
 
   In our actor model, when we set task size as 10000 and number of actors as 100, the model results in the best performance with an average ratio of CPU time and real time equals to 2.45 running on a MacBook Pro with Dual-Core Intel Core i5 Processor.  
-  We tried to assign different task sizes to different number of actors to test the performance of our model. Consider the difference performance for same task size and actor number each time, we choose to run each situation three times and get their average ratio as the performance. We choose to test task size ranging from 1E3 to 1E7 and worker number ranging from 1 to 500 based on the number of processors and time feasibility. According to the average ratio of CPU time to real time for each situation, setting task size as 10000 and number  of actors as 100 will lead to best performance.
-
-
-  The size of the work unit refers to the number of sub-problems that a worker gets in a single request from the boss.
+  We tried to assign different task sizes to different numbers of actors to test the performance of our model. Consider the difference performance for the same task size and actor number each time, we choose to run each situation three times and get their average ratio as the performance. We choose to test task size ranging from 1E3 to 1E7 and worker number ranging from 1 to 500 based on the number of processors and time feasibility. According to the average ratio of CPU time to real time for each situation, setting task size as 10000 and number  of actors as 100 will lead to best performance.
 
 
 * The result of running your program for input 4
-  #### <u>**Some results of 4 Zeros**</u>
+  #### <u>**Some results with 4 Zeros**</u>
   ```
   hongru.liu;2E6n 0000501E37E5C98D6034EEE7ACE2863AF7B4935DFF5F3921282202239B00BF93
   hongru.liu;33Ht 00005EF7566BE988B00CC0D0304BB7F961B312B6826BA1D1CC97B14E030CFEBA
@@ -195,7 +223,7 @@ Not found within first 20 billion redords
 
 * The running time for finding 4 zeros
 
-  With the system of 2c, the CPU time in average is 3046ms and the real time is 1121ms, providing a CPU-real time ratio of 2.72.
+  With the system of 2c, the CPU time on average is 3046ms and the real time is 1121ms, providing a CPU-real time ratio of 2.72.
 
 * The coin with the most 0s you managed to find.
   
@@ -205,4 +233,4 @@ Not found within first 20 billion redords
   ```
 * The largest number of working machines you were able to run your code with.
 
-  2 physical machine that running 1 server on local, running 6 clients on 6 virtual machines.  
+  2 physical machines that run 1 server on local, and 6 clients on 6 virtual machines.   
