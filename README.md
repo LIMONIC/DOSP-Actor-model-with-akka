@@ -1,5 +1,9 @@
-# Distributed Operating System Projects 1
+# Distributed Operating System Projects
+
+> Actor model with Akka.Net
+
 This project implemented distributed computing systems based on actor model with F# and Akka.NET to handle intense computational tasks. To simulate high-intensity computational tasks, the project takes reference from Bitcoin's concept of finding some input string whose output values match a specific pattern after a cryptographic hashing computation.
+
 ## Problem Definition
 Given a string, use SHA-256 to produce a hash value. Check if the heading part of the hash value contains a specific number of consecutive zeros. Only the string's hash value that matches the rule is considered valid. The higher the number of zeros, the more difficult it is to find a valid string.
 
