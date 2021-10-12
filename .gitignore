@@ -10,3 +10,7 @@ bin
 *.exe
 !.paket/paket.bootstrapper.exe
 .ionide/
+HonngruRemoteDemo
+ActorModel
+.vscode
+*.fsproj
